@@ -1,28 +1,25 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { View, StyleSheet, Text } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
-import { getTodaysSteps, saveSteps } from "./helperMethods/AsyncStorage";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { getTodaysData, updateSteps } from "./helperMethods/AsyncStorage";
 import { Pedometer } from "expo-sensors";
 
 const NestedCircularProgress = () => {
-  const [stepCount, setStepCount] = useState(0);
-  const [todaysPreviousCount, setTodaysPreviousCount] = useState(0);
-  const [firstTimeUpdate, setFirstTimeUpdate] = useState(true);
+  const [todayData, setTodaysData] = useState({ steps: 0, distance: 0, energy: 0 });
+  const [todaysPreviousData, setTodaysPreviousData] = useState({ steps: 0, distance: 0, energy: 0 });
+  const isInitialMount = useRef(true); // Use a ref to track the initial mount
 
-  const data = {
-    labels: ["Swim", "Bike", "Run"], // optional
-    data: [0.1, 0.6, 0.8],
-  };
   useEffect(() => {
     const fetchAsyncStorage = async () => {
       try {
-        let result = await getTodaysSteps();
-        setTodaysPreviousCount(result);
-        setStepCount(result);
-        console.log("previous", result);
+        const result = await getTodaysData();
+        setTodaysPreviousData(result);
+        setTodaysData(result);
       } catch (error) {
-        console.log("error in fetching previous data");
+        console.error("Error fetching previous data:", error);
       }
     };
 
@@ -31,69 +28,67 @@ const NestedCircularProgress = () => {
 
   useEffect(() => {
     const subscription = Pedometer.watchStepCount((result) => {
-      console.log("below", todaysPreviousCount, result.steps);
-      setStepCount(todaysPreviousCount + result.steps);
+      console.log("pedometer", result);
+
+      setTodaysData((prev) => {
+        let steps = todaysPreviousData?.steps + result.steps;
+        let distance = todaysPreviousData?.distance + 1; // Adjust calculation
+        let energy = todaysPreviousData?.energy + 1;   // Adjust calculation
+        return { steps, distance, energy };
+      });
     });
 
     return () => subscription && subscription.remove();
-  }, [todaysPreviousCount]);
+  }, [todaysPreviousData]);
 
   useEffect(() => {
-    if (firstTimeUpdate == false) {
-      saveSteps(stepCount);
-      console.log("saving data");
+    if (isInitialMount.current) {
+      isInitialMount.current = false; // Set to false after the first update
     } else {
-      setFirstTimeUpdate(false);
+      console.log("Updating steps data");
+      updateSteps(todayData.steps, todayData.distance, todayData.energy)
+        .then(() => console.log("Data saved successfully"))
+        .catch((error) => console.error("Error saving data:", error));
     }
-  }, [stepCount]);
+  }, [todayData]);
 
   return (
-    <View style={styles.container}>
-      {/* Outer Progress Bar */}
-      <AnimatedCircularProgress
-        size={240}
-        width={25}
-        fill={75} // Outer progress fill percentage
-        tintColor="#00e0ff"
-        backgroundColor="#3d5875"
-        rotation={0} // Keep it at 0 to have the progress start from the top
-        style={styles.outerProgress}
-        lineCap="round"
-      >
-        {() => (
-          <View style={styles.innerCircle}>
-            {/* Inner Progress Bar */}
-            <AnimatedCircularProgress
-              size={180}
-              width={25}
-              fill={(stepCount / 10000) * 100} // Inner progress fill percentage
-              tintColor="#00E676"
-              backgroundColor="#bbf2d7"
-              rotation={0}
-              lineCap="round" // Keep it at 0 to have the progress start from the top
-            >
-              {() => (
-                <>
-                  <Text style={styles.stepCount}>{stepCount}</Text>
-                  <Text style={styles.stepDescription}>of 10,000 steps</Text>
-                </>
-              )}
-            </AnimatedCircularProgress>
-            {/* SVG Icon */}
-            <FontAwesome5
-              name="shoe-prints"
-              size={18} // Adjust size as needed
-              color="white"
-              style={styles.icon}
-            />
-          </View>
-        )}
-      </AnimatedCircularProgress>
+    <View style={styles.container} className="w-full">
+      <View style={styles.AnimatedCircularBox}>
+        <View style={styles.innerCircle}>
+          <AnimatedCircularProgress
+            size={250}
+            width={20}
+            fill={(todayData.steps / 10000) * 100}
+            tintColor="black"
+            backgroundColor="#aaaba9"
+            rotation={0}
+            lineCap="round"
+          >
+            {() => (
+              <>
+                <Text style={styles.stepCount}>{todayData?.steps || 0}</Text>
+                <Text style={styles.stepDescription}>of 10,000 steps</Text>
+              </>
+            )}
+          </AnimatedCircularProgress>
+          <FontAwesome5
+            name="shoe-prints"
+            size={14}
+            color="white"
+            style={styles.icon}
+          />
+        </View>
+      </View>
       <View style={styles.belowContainer}>
-        <View><Text>h</Text></View>
-        <View><Text>h</Text></View>
-        <View><Text>h</Text></View>
-        <View><Text>hz</Text></View>
+        <View style={styles.infoContainer}>
+          <MaterialIcons name="route" size={36} color="black" />
+          <Text style={styles.infoText}>{todayData.distance?.toFixed(1) || 0} km</Text>
+        </View>
+        <View style={styles.infoContainer}>
+          <MaterialCommunityIcons name="fire" size={36} color="black" />
+          <Text style={styles.infoText}>{todayData.energy?.toFixed(0) || 0} kcal</Text>
+        </View>
       </View>
     </View>
   );
@@ -101,36 +96,48 @@ const NestedCircularProgress = () => {
 
 const styles = StyleSheet.create({
   container: {
-    position: "relative",
-    flex: 1,
-    paddingTop: 270,
-    justifyContent: "center",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    margin: 20,
+    backgroundColor: "#FEFF1E",
+    borderRadius: 20,
+    paddingVertical: 16,
+  },
+  AnimatedCircularBox: {
+    justifyContent: "flex-start",
     alignItems: "center",
   },
   innerCircle: {
-    position: "relative",
     justifyContent: "center",
     alignItems: "center",
   },
-  outerProgress: {
-    position: "absolute",
-  },
   stepCount: {
-    fontSize: 30,
+    fontSize: 50,
     fontWeight: "bold",
   },
   stepDescription: {
-    fontWeight: "bold",
+    fontWeight: "400",
   },
   icon: {
     position: "absolute",
-    top: 0, // Adjust to position at the top of the inner circle
-    left: "50%", // Center horizontally
-    transform: [{ translateX: -12 }, { translateY: 2 }], // Adjust to center the icon
+    top: 10,
+    left: "50%",
+    transform: [{ translateX: -30 }],
   },
-  belowContainer:{
-    position:"relative"
-  }
+  belowContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    width: "100%",
+    marginTop: 20,
+  },
+  infoContainer: {
+    alignItems: "center",
+  },
+  infoText: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
 });
 
 export default NestedCircularProgress;

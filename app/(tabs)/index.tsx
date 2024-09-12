@@ -1,29 +1,24 @@
-import {
-  Image,
-  StyleSheet,
-  Platform,
-  SafeAreaView,
-  View,
-  Text,
-  Dimensions,
-  ProgressBarAndroid,
-} from "react-native";
-import { useEffect, useState } from "react";
-import { Pedometer } from "expo-sensors";
-import {
-  saveSteps,
-  getTodaysSteps,
-} from "../../components/helperMethods/AsyncStorage";
-import { ProgressChart } from "react-native-chart-kit";
+import React, { useState } from "react";
+import { StyleSheet, SafeAreaView, View, Text, StatusBar, TouchableOpacity } from "react-native";
 import CircularProgressBar from "@/components/CircularProgressBar";
 
 export default function HomeScreen() {
- 
+   const [first, setfirst] = useState(true)
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <CircularProgressBar />
-      </View>  
+      
+      <View style={styles.container} className="w-screen">
+      <StatusBar
+        barStyle="light-content" // Or 'dark-content' for a dark theme
+        backgroundColor="#272b24" // The background color of the status bar
+      />
+        {/* Circular Progress Bar */}
+          <CircularProgressBar />
+        {/* Text element below the Circular Progress */}
+        <View style={styles.textContainer}>
+          <TouchableOpacity onPress={()=> setfirst(!first)}><Text>hey</Text></TouchableOpacity>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -31,11 +26,19 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: 0, // Adjust this value to match the header height if needed
+    backgroundColor: "#202020",
   },
   container: {
-    display:"flex",
-    justifyContent: "flex-start",
-    alignItems: "center",
+    flex: 1,
+    justifyContent: "flex-start", // Center vertically
+    alignItems: "center", // Center horizontally
+    paddingHorizontal: 16,
+  },
+  textContainer: {
+    alignItems: "center", // Center the text horizontally
+  },
+  text: {
+    fontSize: 18,
+    color: "#fff", // Adjust text color as needed
   },
 });
